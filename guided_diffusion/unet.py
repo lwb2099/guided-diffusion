@@ -242,12 +242,14 @@ class ResBlock(TimestepBlock):
             h = in_conv(h)
         else:
             h = self.in_layers(x)
+        # [1,256]
         emb_out = self.emb_layers(emb).type(h.dtype)
         while len(emb_out.shape) < len(h.shape):
             emb_out = emb_out[..., None]
         if self.use_scale_shift_norm:
             out_norm, out_rest = self.out_layers[0], self.out_layers[1:]
             scale, shift = th.chunk(emb_out, 2, dim=1)
+            # [1,128,128,128]
             h = out_norm(h) * (1 + scale) + shift
             h = out_rest(h)
         else:
@@ -821,6 +823,8 @@ class EncoderUNetModel(nn.Module):
         )
         self._feature_size += ch
         self.pool = pool
+        # difference with improve DDPM: don't have output block here,
+        # just pooling layer
         if pool == "adaptive":
             self.out = nn.Sequential(
                 normalization(ch),
@@ -876,6 +880,7 @@ class EncoderUNetModel(nn.Module):
         :param timesteps: a 1-D batch of timesteps.
         :return: an [N x K] Tensor of outputs.
         """
+        # time information: [1, 512]
         emb = self.time_embed(timestep_embedding(timesteps, self.model_channels))
 
         results = []

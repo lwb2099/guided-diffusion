@@ -37,6 +37,7 @@ def main():
     )
     model.to(dist_util.dev())
     if args.noised:
+        # sample t的策略
         schedule_sampler = create_named_schedule_sampler(
             args.schedule_sampler, diffusion
         )
@@ -102,13 +103,17 @@ def main():
     logger.log("training classifier model...")
 
     def forward_backward_log(data_loader, prefix="train"):
+        # [batch,c,h,w] = [256,3,128,128]
+        # extra: [batch] => labels for each img
         batch, extra = next(data_loader)
         labels = extra["y"].to(dist_util.dev())
 
         batch = batch.to(dist_util.dev())
         # Noisy images
         if args.noised:
+            # [batch,] 1~T
             t, _ = schedule_sampler.sample(batch.shape[0], dist_util.dev())
+            # noised images: x_t
             batch = diffusion.q_sample(batch, t)
         else:
             t = th.zeros(batch.shape[0], dtype=th.long, device=dist_util.dev())
@@ -116,6 +121,7 @@ def main():
         for i, (sub_batch, sub_labels, sub_t) in enumerate(
             split_microbatches(args.microbatch, batch, labels, t)
         ):
+            # [micro_batch, C, H, W] = [1,3,128,128]
             logits = model(sub_batch, timesteps=sub_t)
             loss = F.cross_entropy(logits, sub_labels, reduction="none")
 
@@ -133,6 +139,7 @@ def main():
             if loss.requires_grad:
                 if i == 0:
                     mp_trainer.zero_grad()
+                # update in one batch
                 mp_trainer.backward(loss * len(sub_batch) / len(batch))
 
     for step in range(args.iterations - resume_step):

@@ -28,6 +28,7 @@ def classifier_defaults():
     """
     Defaults for classifier models.
     """
+    # line comment
     return dict(
         image_size=64,
         classifier_use_fp16=False,
@@ -230,7 +231,7 @@ def create_classifier(
     classifier_use_fp16,
     classifier_width,
     classifier_depth,
-    classifier_attention_resolutions,
+    classifier_attention_resolutions,  # '32,16,8'
     classifier_use_scale_shift_norm,
     classifier_resblock_updown,
     classifier_pool,
@@ -247,6 +248,7 @@ def create_classifier(
         raise ValueError(f"unsupported image size: {image_size}")
 
     attention_ds = []
+    # '32,16,8'
     for res in classifier_attention_resolutions.split(","):
         attention_ds.append(image_size // int(res))
 

@@ -51,14 +51,19 @@ def main():
         classifier.convert_to_fp16()
     classifier.eval()
 
+    """compute grad for mean shifting"""
     def cond_fn(x, t, y=None):
         assert y is not None
         with th.enable_grad():
             x_in = x.detach().requires_grad_(True)
             logits = classifier(x_in, t)
+            # [batch, label_num]
             log_probs = F.log_softmax(logits, dim=-1)
+            # [batch, 1] select label
             selected = log_probs[range(len(logits)), y.view(-1)]
-            return th.autograd.grad(selected.sum(), x_in)[0] * args.classifier_scale
+            # can sum: each image's grad only effect its own indices log_probs
+            # [4,3,64,64]
+            return th.autograd.grad(selected.sum(), x_in)[0] * args.classifier_scale  # scale:  s in paper
 
     def model_fn(x, t, y=None):
         assert y is not None

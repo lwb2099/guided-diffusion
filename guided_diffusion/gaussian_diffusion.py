@@ -1,5 +1,5 @@
 """
-This code started out as a PyTorch port of Ho et al's diffusion models:
+This code started out as a PyTorch port of Ho et al.'s diffusion models:
 https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/diffusion_utils_2.py
 
 Docstrings have been added, as well as DDIM sampling and a new collection of beta schedules.
@@ -25,7 +25,7 @@ def get_named_beta_schedule(schedule_name, num_diffusion_timesteps):
     they are committed to maintain backwards compatibility.
     """
     if schedule_name == "linear":
-        # Linear schedule from Ho et al, extended to work for any number of
+        # Linear schedule from Ho et al., extended to work for any number of
         # diffusion steps.
         scale = 1000 / num_diffusion_timesteps
         beta_start = scale * 0.0001
@@ -257,6 +257,7 @@ class GaussianDiffusion:
 
         B, C = x.shape[:2]
         assert t.shape == (B,)
+        # x: noise we sampled
         model_output = model(x, self._scale_timesteps(t), **model_kwargs)
 
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
@@ -376,7 +377,7 @@ class GaussianDiffusion:
         See condition_mean() for details on cond_fn.
 
         Unlike condition_mean(), this instead uses the conditioning strategy
-        from Song et al (2020).
+        from Song et al. (2020).
         """
         alpha_bar = _extract_into_tensor(self.alphas_cumprod, t, x.shape)
 
@@ -432,9 +433,14 @@ class GaussianDiffusion:
             (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
         )  # no noise when t == 0
         if cond_fn is not None:
+            # guide shift happens
+            # x: x_{t+1}, t: t+1
             out["mean"] = self.condition_mean(
-                cond_fn, out, x, t, model_kwargs=model_kwargs
+                # cond_fn, out, x, t, model_kwargs=model_kwargs
+                # should pass x_t and t instead of x_{t+1} and t+1
+                cond_fn, out, out['mean'], t-1, model_kwargs=model_kwargs
             )
+        # x_{t-1}
         sample = out["mean"] + nonzero_mask * th.exp(0.5 * out["log_variance"]) * noise
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
 
@@ -510,7 +516,9 @@ class GaussianDiffusion:
         if noise is not None:
             img = noise
         else:
+            # sample from normal distribution
             img = th.randn(*shape, device=device)
+        # from T to 0
         indices = list(range(self.num_timesteps))[::-1]
 
         if progress:
